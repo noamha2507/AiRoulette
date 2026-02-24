@@ -3,9 +3,29 @@ import time
 import os
 import random
 import re
-from models import Player, Wheel
+from models import Player, Wheel, NumberBet, ColorBet, EvenOddBet
 from database import DatabaseManager
 from MainController import MainController
+
+class Validator:
+    """Class with static methods for input validation (OOP Best Practice)"""
+    @staticmethod
+    def validate_number(val, min_val, max_val):
+        """Validates if a value is an integer within a range"""
+        try:
+            num = int(val)
+            return min_val <= num <= max_val
+        except (ValueError, TypeError):
+            return False
+
+    @staticmethod
+    def validate_amount(val, balance):
+        """Validates if a betting amount is valid and within balance"""
+        try:
+            amt = int(val)
+            return 0 < amt <= balance
+        except (ValueError, TypeError):
+            return False
 
 class SessionStats:
     """מעקב אחר נתוני הסשן הנוכחי עבור הדשבורד"""
@@ -67,7 +87,7 @@ def type_effect(text, color="\033[38;5;117m", speed=0.01):
     RESET = "\033[0m"
     GOLD = "\033[38;5;214m"
     sys.stdout.write(f"{GOLD}DEALER AI ➤ {RESET}{color}")
-    for char in text:
+    for char in text or "":
         sys.stdout.write(char)
         sys.stdout.flush()
         time.sleep(speed)
@@ -205,12 +225,12 @@ def main():
     while True:
         print_header()
         
-        # שכבה 1: נתוני חשבון וביצועים
+        # שכבה 1: נתוני חשבון וביצועים (שימוש ב-Dunder str)
         win_rate = f"{stats.get_win_rate():.1f}%"
         hot_nums = ", ".join(stats.get_best_numbers()) or "---"
         
         overview = [
-            f"{WHITE}PLAYER: {GOLD}{player.name.ljust(22)} {WHITE}VAULT: {GREEN}${format(player.get_balance(), ',')}",
+            f"{WHITE}VAULT INTEL: {GOLD}{player}", # פה נקרא ה-__str__ של Player
             f"{WHITE}WIN RATE: {CYAN}{win_rate.ljust(19)} {WHITE}HOT LIST: {GOLD}{hot_nums}"
         ]
         print_box(overview, color=PURPLE, title="SESSION INTELLIGENCE", width=80)
@@ -238,12 +258,12 @@ def main():
         choice = input(f"\n{GOLD}COMMAND ➤ {RESET}").strip()
 
         # סיום המשחק
-        if choice == "5" or choice == "➎":
+        if choice in ["5", "➎"]:
             print(f"\n{CYAN}Banker: Final assessment complete. Payout of ${player.get_balance()} issued.{RESET}")
             break
         
         # צפייה בהיסטוריה
-        if choice == "4" or choice == "➍":
+        if choice in ["4", "➍"]:
             history = db.get_player_history(player.name)
             show_history_table(history)
             input(f"\n{GOLD}Press Enter to return to the table...{RESET}")
@@ -261,46 +281,47 @@ def main():
             continue
 
         try:
-            # הגדרת סוג ההימור והקלט
+            # הגדרת אובייקט ההימור (פולימורפיזם)
+            target = None
+            bet_class = None
+
             if choice in ["1", "➊"]:
                 target = input(f"{CYAN}Target Integer (0-36): {RESET}").strip()
-                if not target.isdigit() or not (0 <= int(target) <= 36):
+                if not Validator.validate_number(target, 0, 36):
                     print(f"{RED}⚠ Protocol Error: Integer overflow (0-36).{RESET}")
                     time.sleep(1)
                     continue
-                b_type = "number"
+                bet_class = NumberBet
             elif choice in ["2", "➋"]:
                 target = input(f"{CYAN}Target Harmony (Red/Black): {RESET}").strip().capitalize()
                 if target not in ["Red", "Black"]:
                     print(f"{RED}⚠ Protocol Error: Unknown harmony.{RESET}")
                     time.sleep(1)
                     continue
-                b_type = "color"
+                bet_class = ColorBet
             elif choice in ["3", "➌"]:
                 target = input(f"{CYAN}Target Parity (Even/Odd): {RESET}").strip().lower()
                 if target not in ["even", "odd"]:
                     print(f"{RED}⚠ Protocol Error: Parity mismatch.{RESET}")
                     time.sleep(1)
                     continue
-                b_type = "even_odd"
+                bet_class = EvenOddBet
 
             # קלט סכום ההימור
             amt_input = input(f"{CYAN}Capital Allocation: ${RESET}").strip()
-            if not amt_input.isdigit():
-                print(f"{RED}⚠ Protocol Error: Quantitative value required.{RESET}")
+            if not Validator.validate_amount(amt_input, player.get_balance()):
+                print(f"{RED}⚠ Protocol Error: Quantitative value required or balance insufficient.{RESET}")
                 time.sleep(1)
                 continue
             amount = int(amt_input)
 
-            if amount > player.get_balance() or amount <= 0:
-                print(f"{RED}⚠ Protocol Error: Over-leveraged or invalid allocation.{RESET}")
-                time.sleep(1)
-                continue
-
-            # ביצוע ההימור
+            # יצירת אובייקט הימור ומסירתו לקונטרולר (Polymorphism)
+            current_bet = bet_class(target, amount)
+            
+            # אנימציה וביצוע
             roll_number, roll_color = wheel.spin()
             spin_animation(roll_number, roll_color)
-            result = controller.process_bet(b_type, target, amount)
+            result = controller.process_bet(current_bet)
             
             # עדכון סטטיסטיקה
             stats.update(roll_number, "WINNER" if "WINNER" in result else "LOST")

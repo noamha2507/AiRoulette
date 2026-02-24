@@ -1,4 +1,5 @@
 import random
+from abc import ABC, abstractmethod
 
 class Player:
     """מחלקת שחקן המנהלת שם ומאזן כספי"""
@@ -14,9 +15,9 @@ class Player:
         """מעדכנת את היתרה (בשימוש ע"י הקונטרולר)"""
         self.balance = amount
 
-    def set_balance(self, amount):
-        """מעדכנת את היתרה (בשימוש ע"י הקונטרולר)"""
-        self.balance = amount
+    def __str__(self):
+        """Dunder Method: ייצוג טקסטואלי מעוצב של השחקן"""
+        return f"Player(Name: {self.name}, Balance: ${self.balance:,.2f})"
 
 class Wheel:
     """מחלקת גלגל הרולטה המנהלת את המספרים והצבעים (0-36)"""
@@ -37,3 +38,47 @@ class Wheel:
         result_number = random.randint(0, 36)
         result_color = self.numbers[result_number]
         return result_number, result_color
+
+    def __repr__(self):
+        """Dunder Method: ייצוג טכני של אובייקט הגלגל"""
+        return f"<Wheel(TotalNumbers=37)>"
+
+# --- ירושה ופולימורפיזם: מערכת ההימורים ---
+
+class Bet(ABC):
+    """מחלקת אב אבסטרקטית לכל סוגי ההימורים"""
+    def __init__(self, selection, amount):
+        self.selection = selection
+        self.amount = amount
+
+    @abstractmethod
+    def calculate_payout(self, roll_number, roll_color):
+        """מתודה אבסטרקטית לחישוב זכייה/הפסד"""
+        pass
+
+class NumberBet(Bet):
+    """הימור על מספר ספציפי (יחס 1:35)"""
+    def calculate_payout(self, roll_number, roll_color):
+        if int(self.selection) == roll_number:
+            return self.amount * 35
+        return -self.amount
+
+class ColorBet(Bet):
+    """הימור על צבע (Red/Black - יחס 1:1)"""
+    def calculate_payout(self, roll_number, roll_color):
+        if self.selection.capitalize() == roll_color:
+            return self.amount
+        return -self.amount
+
+class EvenOddBet(Bet):
+    """הימור על זוגי/אי-זוגי (יחס 1:1)"""
+    def calculate_payout(self, roll_number, roll_color):
+        if roll_number == 0:
+            return -self.amount
+        
+        is_even = (roll_number % 2 == 0)
+        user_wants_even = (self.selection.lower() == "even")
+        
+        if is_even == user_wants_even:
+            return self.amount
+        return -self.amount
