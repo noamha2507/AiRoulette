@@ -28,24 +28,24 @@ class MainController:
         )
 
     def process_bet(self, bet_obj: Bet):
-        """פולימורפיזם: מעבדת הימור מכל סוג המממש את מחלקת Bet"""
+        """פולימורפיזם: מעבדת הימור לפי דרישות הסילבוס (check_win ו-get_payout)"""
         # קבלת תוצאה מהגלגל
         roll_number, roll_color = self.wheel.spin()
         
-        # שימוש במתודה פולימורפית לחישוב הרווח/הפסד
-        payout = bet_obj.calculate_payout(roll_number, roll_color)
-        win = payout > 0
+        # שימוש במתודות הפולימורפיות החדשות
+        is_win = bet_obj.check_win(roll_number, roll_color)
         
-        # עדכון מאזן
-        new_balance = self.player.get_balance() + payout
-        self.player.set_balance(new_balance)
-        self.db.update_balance(self.player.name, new_balance)
-        
-        # בניית הודעת תוצאה
-        if win:
+        if is_win:
+            payout = bet_obj.get_payout(bet_obj.amount)
+            new_balance = self.player.get_balance() + payout
             result_msg = f"{self.GREEN}WINNER! Result: {roll_number} {roll_color}.{self.RESET}"
         else:
+            new_balance = self.player.get_balance() - bet_obj.amount
             result_msg = f"{self.RED}LOST. Result: {roll_number} {roll_color}.{self.RESET}"
+
+        # עדכון מאזן ושמירה
+        self.player.set_balance(new_balance)
+        self.db.update_balance(self.player.name, new_balance)
 
         # שמירה למסד הנתונים
         self.db.save_game(
