@@ -242,7 +242,8 @@ def main():
         if last_outcome_summary:
             is_win = "WINNER" in last_outcome_summary
             celebration(is_win)
-            print(f" {GOLD}➤ {last_outcome_summary}{RESET}")
+            color = GREEN if is_win else RED
+            print(f" {GOLD}➤ {color}{last_outcome_summary}{RESET}")
             last_outcome_summary = None
 
         # שכבה 3: תפריט פעולות
@@ -259,7 +260,7 @@ def main():
 
         # סיום המשחק
         if choice in ["5", "➎"]:
-            print(f"\n{CYAN}Banker: Final assessment complete. Payout of ${player.get_balance()} issued.{RESET}")
+            print(f"\n{CYAN}Banker: Final assessment complete. Payout of ${player.balance} issued.{RESET}")
             break
         
         # צפייה בהיסטוריה
@@ -273,10 +274,10 @@ def main():
             continue
 
         # ניהול מצבי חוסר נזילות
-        if player.get_balance() <= 0:
+        if player.balance <= 0:
             print(f"{RED}⚠ Liquidity Crisis. Request a $1,000 bailout? (y/n){RESET}")
             if input().lower() == 'y':
-                player.set_balance(1000)
+                player.balance = 1000
                 db.update_balance(player.name, 1000)
             continue
 
@@ -287,7 +288,7 @@ def main():
 
             if choice in ["1", "➊"]:
                 target = input(f"{CYAN}Target Integer (0-36): {RESET}").strip()
-                if not Validator.validate_number(target, 0, 36):
+                if not Wheel.is_valid_number(target):
                     print(f"{RED}⚠ Protocol Error: Integer overflow (0-36).{RESET}")
                     time.sleep(1)
                     continue
@@ -309,7 +310,7 @@ def main():
 
             # קלט סכום ההימור
             amt_input = input(f"{CYAN}Capital Allocation: ${RESET}").strip()
-            if not Validator.validate_amount(amt_input, player.get_balance()):
+            if not Validator.validate_amount(amt_input, player.balance):
                 print(f"{RED}⚠ Protocol Error: Quantitative value required or balance insufficient.{RESET}")
                 time.sleep(1)
                 continue
