@@ -42,6 +42,8 @@ class AIManager:
                   f"Task: One witty, charismatic sentence (under 12 words) to the player. "
                   f"Be slightly provocative but encouraging. No internal monologue or quotes.")
 
+        ## הגדרת גיבויים דינמיים למקרה ששרת ה-AI לא זמין
+        ## Low Coupling: המערכת ממשיכה לתפקד גם ללא המוח המרכזי (Ollama)
         current_fallbacks = list(self.fallbacks)
         if balance < 200:
             current_fallbacks = ["Living on the edge, aren't we?", "One big win could change everything.", "Careful now, the vault is looking empty."]
@@ -49,11 +51,18 @@ class AIManager:
             current_fallbacks = ["You're on fire! Don't let the wheel cool down.", "The pit boss is starting to sweat. Keep going."]
         elif losses > 3:
             current_fallbacks = ["Rough patch? The wheel owes you one.", "Statistics say you're due for a win. Probably."]
+        
+        ## הוספת גיוון רנדומלי מהרשימה הכללית כדי למנוע חזרתיות
+        random.shuffle(current_fallbacks)
 
         try:
-            if self.client:
+            ## ניסיון פנייה לשרת ה-Ollama המקומי
+            if HAS_OLLAMA and self.client:
                 response = self.client.generate(model=self.model_name, prompt=prompt)
                 return response['response'].strip().split('\n')[0].replace('"', '')
+            
+            ## אם השרת לא זמין, השתמש באחד ממשפטי הגיבוי באופן רנדומלי
             return random.choice(current_fallbacks)
         except:
+            ## במקרה של שגיאת תקשורת, חזרה לגיבוי
             return random.choice(current_fallbacks)
