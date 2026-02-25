@@ -2,15 +2,18 @@ import sqlite3
 from datetime import datetime
 
 class DatabaseManager:
-    """ניהול מסד הנתונים של הקזינו - שחקנים והיסטוריה"""
+    ## חלוקת קוד (Coupling & Cohesion): הקובץ עוסק אך ורק מול ה-SQLite (לכידות גבוהה)
+    ## זהו צימוד נמוך (Low Coupling) - שאר הקוד לא תלוי בפרטי מימוש מסד הנתונים
+    ## ניהול בסיס הנתונים (Persistence)
     def __init__(self, db_name="casino.db"):
+        ## self: מופע מנהל בסיס הנתונים שאחראי על החיבור והשאילתות
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self.create_tables()
 
     def create_tables(self):
-        """יצירת טבלאות שחקנים והיסטוריה אם אינן קיימות"""
-        # טבלת שחקנים ומאזן
+        ## יצירת טבלאות המערכת
+        ## טבלת שחקנים ומאזן
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS players (
                 username TEXT PRIMARY KEY,
@@ -18,7 +21,7 @@ class DatabaseManager:
             )
         ''')
         
-        # טבלת היסטוריית משחקים מפורטת
+        ## טבלת היסטוריית משחקים מפורטת
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,7 +36,7 @@ class DatabaseManager:
         self.conn.commit()
 
     def load_player_data(self, username):
-        """טעינת יתרה או יצירת שחקן חדש (מתחיל עם $1000)"""
+        ## טעינת נתוני שחקן או יצירת שחקן חדש
         self.cursor.execute("SELECT balance FROM players WHERE username = ?", (username,))
         row = self.cursor.fetchone()
         if row:
@@ -45,12 +48,12 @@ class DatabaseManager:
             return initial_balance
 
     def update_balance(self, username, new_balance):
-        """עדכון היתרה הנוכחית של השחקן"""
+        ## עדכון יתרת השחקן
         self.cursor.execute("UPDATE players SET balance = ? WHERE username = ?", (new_balance, username))
         self.conn.commit()
 
     def save_game(self, player_name, amount, result, bet_type, selection):
-        """שמירת סבב משחק להיסטוריה"""
+        ## שמירת תוצאת משחק להיסטוריה
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         query = """
             INSERT INTO history (player_name, amount, result, bet_type, selection, timestamp) 
@@ -60,7 +63,7 @@ class DatabaseManager:
         self.conn.commit()
 
     def get_player_history(self, username, limit=10):
-        """שליפת היסטוריית המשחקים האחרונה של השחקן"""
+        ## שליפת היסטוריית המשחקים
         query = """
             SELECT id, player_name, amount, result, timestamp, bet_type, selection 
             FROM history 

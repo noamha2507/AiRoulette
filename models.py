@@ -1,36 +1,46 @@
 import random
 from abc import ABC, abstractmethod
 
+## MVC Architecture: Model - שכבת הנתונים והלוגיקה העסקית
+
 class Player:
-    """מחלקת שחקן המנהלת שם ומאזן כספי"""
+    ## OOP: מחלקה (Class) - תבנית מופשטת לייצוג שחקן
+    ## מחלקת שחקן המנהלת שם ומאזן כספי
     def __init__(self, name, initial_balance=1000):
-        self._name = name
-        self._balance = initial_balance
+        ## self: המופע הספציפי שנוצר כרגע בזיכרון (הכתובת של האובייקט)
+        ## זה הפרמטר הראשון שתמיד חייב להופיע במתודות של מחלקה
+        ## Dunder Method: בנאי (Constructor) המופעל בעת יצירת אובייקט
+        self._name = name  ## Encapsulation: הגנה על נתון (שם)
+        self._balance = initial_balance  ## OOP: משתנה אובייקט (Object Member) - ספציפי למופע
 
     @property
     def name(self):
-        """Getter: מחזיר את שם השחקן"""
+        ## self: מאפשר למתודה לגשת לנתונים של האובייקט הספציפי
+        ## Getter לשם השחקן
         return self._name
 
     @property
     def balance(self):
-        """Getter: מחזירה את היתרה הנוכחית באמצעות פרופרטי"""
+        ## Encapsulation: Getter לקבלת יתרה
         return self._balance
 
     @balance.setter
     def balance(self, amount):
-        """Setter: מעדכנת את היתרה בצורה מבוקרת (Encapsulation)"""
+        ## ציר 1: כימוס (Encapsulation) - הגנה על הנתונים מפני שינוי לא חוקי
+        ## Setter: מאפשר עדכון מבוקר של היתרה (למשל: בדיקה שהסכום לא שלילי)
         if amount < 0:
             raise ValueError("Balance cannot be negative.")
         self._balance = amount
 
     def __str__(self):
-        """Dunder Method: ייצוג טקסטואלי מעוצב"""
+        ## self: מאפשר לייצוג הטקסטואלי להשתמש בערכים האישיים של המופע
+        ## Dunder Method: כרטיס ביקור קריא (ייצוג טקסטואלי) המופעל בעת הדפסת האובייקט
+        ## משמש בתצוגה ב-main.py
         return f"Player: {self._name}, Balance: ${self._balance:,}"
 
 class Wheel:
-    """מחלקת גלגל הרולטה המנהלת את המספרים והצבעים (0-36)"""
-    # הגדרת משאבים משותפים כמשתנה מחלקה (Class Attribute) לפי דרישות הסילבוס
+    ## ניהול גלגל הרולטה
+    ## OOP: משתנה מחלקה (Class Member) - קבוע ומשותף לכל המופעים של הגלגל
     NUMBERS_MAPPING = {
         0: "Green",
         1: "Red", 2: "Black", 3: "Red", 4: "Black", 5: "Red", 6: "Black",
@@ -42,19 +52,14 @@ class Wheel:
     }
 
     def spin(self):
-        """
-        מבצעת סיבוב ומחזירה מספר וצבע אקראיים.
-        """
+        ## self: ניגש למשתנה המחלקה NUMBERS_MAPPING דרך המופע הנוכחי
         result_number = random.randint(0, 36)
         result_color = self.NUMBERS_MAPPING[result_number]
         return result_number, result_color
 
     @staticmethod
     def is_valid_number(num):
-        """
-        מתודה סטטית לבדיקת תקינות מספר בטווח הרולטה.
-        עקרון OOP: Static Methods - שירותים הקשורים למחלקה ללא תלות באובייקט ספציפי.
-        """
+        ## Static Method: בדיקת תקינות ללא תלות במופע
         try:
             val = int(num)
             return 0 <= val <= 36
@@ -62,38 +67,33 @@ class Wheel:
             return False
 
     def __repr__(self):
-        """
-        Dunder Method: ייצוג טכני של מבנה הגלגל.
-        עקרון OOP: Polymorphism - מימוש ייצוג פנימי לאובייקט.
-        """
+        ## self: מייצג את "עצמי" לצורך הדפסה טכנית
+        ## Dunder Method & Polymorphism: ייצוג טכני פנימי של האובייקט
         return f"<Wheel(TotalNumbers={len(self.NUMBERS_MAPPING)})>"
 
-# --- ירושה ופולימורפיזם: מערכת ההימורים המשודרגת ---
+## --- ירושה ופולימורפיזם: מערכת ההימורים המשודרגת ---
 
 class Bet(ABC):
-    """
-    מחלקת אב אבסטרקטית לכל סוגי ההימורים.
-    עקרון OOP: Inheritance (הורשה) ו-Abstraction (אבסטרקציה).
-    """
+    ## ציר 2: הורשה (Inheritance) ומחלקה אבסטרקטית
+    ## Abstraction: משמשת כ"ממשק" (הסכם) שמחייב את הבנים לממש פונקציות מסוימות
     def __init__(self, selection, amount):
+        ## self: הפניה לאובייקט ההימור שזה עתה נוצר
         self.selection = selection
         self.amount = amount
 
     @abstractmethod
     def check_win(self, roll_number, roll_color):
-        """בדיקה האם ההימור זכה - תמומש במחלקות היורשות (Full Polymorphism)"""
+        ## פולימורפיזם (ציר 3): מתודה אבסטרקטית שתמומש בצורה שונה בכל סוג הימור
         pass
 
     @abstractmethod
     def get_payout(self, amount):
-        """חישוב סכום הזכייה - תמומש במחלקות היורשות (Full Polymorphism)"""
+        ## פולימורפיזם: חישוב זכייה שונה לכל סוג הימור (דריסת מתודות)
         pass
 
 class NumberBet(Bet):
-    """
-    הימור על מספר ספציפי (יחס 1:35).
-    עקרון OOP: Inheritance ו-Methods Overriding.
-    """
+    ## ציר 2: הורשה (Inheritance) - מרחיבה את מחלקת Bet
+    ## דריסה (Overriding): מימוש ייחודי של check_win עבור מספר
     def check_win(self, roll_number, roll_color):
         return str(self.selection) == str(roll_number)
 
@@ -101,10 +101,8 @@ class NumberBet(Bet):
         return amount * 35
 
 class ColorBet(Bet):
-    """
-    הימור על צבע (Red/Black - יחס 1:1).
-    עקרון OOP: Inheritance ו-Polymorphism.
-    """
+    ## הורשה: יורשת מ-Bet ומממשת את ה"הסכם"
+    ## דריסה (Overriding): לוגיקת בדיקת זכייה לפי צבע
     def check_win(self, roll_number, roll_color):
         return self.selection.capitalize() == roll_color
 
@@ -112,10 +110,8 @@ class ColorBet(Bet):
         return amount
 
 class EvenOddBet(Bet):
-    """
-    הימור על זוגי/אי-זוגי (יחס 1:1).
-    עקרון OOP: Inheritance ומימוש לוגיקה ייחודית במתודה דרוסה.
-    """
+    ## הורשה ופולימורפיזם: מימוש ייחודי לזוגי/אי-זוגי
+    ## דריסה (Overriding): לוגיקה ייחודית במתודה דרוסה
     def check_win(self, roll_number, roll_color):
         if roll_number == 0:
             return False

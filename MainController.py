@@ -3,15 +3,17 @@ from ai_handler import AIManager
 from models import Bet
 
 class MainController:
-    """בקר ראשי המנהל את הלוגיקה של המשחק, האינטראקציה עם ה-AI וההימורים"""
+    ## MVC Architecture: Controller - הבקרה של המערכת
+    ## מנהלת את הדיאלוג בין ה-Model (נתונים) ל-View (תצוגה)
+    ## בקר ראשי לניהול לוגיקת המשחק (Controller)
     def __init__(self, player, wheel, db_manager):
+        ## self: המופע של הקונטרולר שמנהל את הזרם של המשחק
         self.player = player
         self.wheel = wheel
         self.db = db_manager
         self.ai_manager = AIManager()
 
     def get_ai_insight(self, last_outcome=None):
-        """מייצרת תובנה מהדילר (שימוש ב-AIManager)"""
         history = self.db.get_player_history(self.player.name, limit=5)
         return self.ai_manager.get_dealer_insight(
             self.player.name, 
@@ -21,14 +23,14 @@ class MainController:
         )
 
     def process_bet(self, bet_obj: Bet):
-        """
-        מעבדת הימור באמצעות פולימורפיזם (Polymorphism) מלא.
-        נצמדת לארכיטקטורת MVC - ה-Controller מנהל לוגיקה בלבד ללא עיצוב.
-        """
-        # קבלת תוצאה מהגלגל
+        ## ציר 3: פולימורפיזם (Polymorphism) - שיא העוצמה של OOP!
+        ## הקונטרולר מקבל אובייקט ולא אכפת לו מה הסוג המדויק שלו (צבע, מספר וכו')
+        ## הוא פשוט מפעיל את הממשק המשותף: bet_obj.check_win()
+        ## Polymorphism: עיבוד הימור ללא תלות בסוגו הספציפי
+        ## קבלת תוצאה מהגלגל
         roll_number, roll_color = self.wheel.spin()
         
-        # שימוש פולימורפי במתודות האובייקט ללא קשר לסוגו הספציפי
+        ## Polymorphism: שימוש במתודות האובייקט ללא קשר לסוגו
         is_win = bet_obj.check_win(roll_number, roll_color)
         
         if is_win:
@@ -39,14 +41,14 @@ class MainController:
             new_balance = self.player.balance - bet_obj.amount
             status = "LOST"
 
-        # עדכון המודל (Encapsulation דרך setter)
+        ## Encapsulation: עדכון המודל דרך ה-setter
         self.player.balance = new_balance
         self.db.update_balance(self.player.name, new_balance)
 
-        # יצירת הודעת תוצאה נקייה (ללא קודי צבע - אחריות ה-View)
+        ## יצירת הודעת תוצאה נקייה (ללא קודי צבע - אחריות ה-View)
         result_msg = f"{status}! Result: {roll_number} {roll_color}."
 
-        # שמירה להיסטוריה
+        ## שמירה להיסטוריה
         self.db.save_game(
             self.player.name, 
             bet_obj.amount, 

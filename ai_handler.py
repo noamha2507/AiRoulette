@@ -7,8 +7,11 @@ except ImportError:
     HAS_OLLAMA = False
 
 class AIManager:
-    """Class to manage AI interactions and dealer insights (Separation of Concerns)"""
+    ## AI Agent: סוכן אינטליגנטי המנהל את הקשר עם ה-LLM
+    ## משתמש בשרת אינפרנס מקומי (Ollama) כ"מוח" של המערכת
+    ## ניהול הקשר עם ה-AI ותובנות הדילר (Separation of Concerns)
     def __init__(self, model_name="llama3.2:1b", host='http://127.0.0.1:11434'):
+        ## self: המופע של מנהל ה-AI ששומר על הקשר עם השרת
         self.model_name = model_name
         if HAS_OLLAMA:
             self.client = Client(host=host)
@@ -25,7 +28,8 @@ class AIManager:
         ]
 
     def get_dealer_insight(self, player_name, balance, history, last_outcome=None):
-        """Generates a charismatic dealer comment based on player state"""
+        ## הענקת הקשר (Context): ה-AI מקבל את מצב השחקן וההיסטוריה כדי להפיק תובנה חכמה
+        ## יצירת הערה ייחודית מהדילר לפי מצב השחקן
         wins = sum(1 for h in history if "WINNER" in h[3])
         losses = len(history) - wins
         

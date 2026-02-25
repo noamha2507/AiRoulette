@@ -7,11 +7,14 @@ from models import Player, Wheel, NumberBet, ColorBet, EvenOddBet
 from database import DatabaseManager
 from MainController import MainController
 
+## MVC Architecture: View - שכבת התצוגה וקלט המשתמש
+## הקובץ מכיל את פקודות ה-print, העיצוב וקלטי המשתמש
+
 class Validator:
-    """Class with static methods for input validation (OOP Best Practice)"""
+    ## OOP: Static Methods - מתודות שירות ששייכות למחלקה ולא דורשות יצירת אובייקט
+    ## ולידציה של קלטי משתמש (Static Methods)
     @staticmethod
     def validate_number(val, min_val, max_val):
-        """Validates if a value is an integer within a range"""
         try:
             num = int(val)
             return min_val <= num <= max_val
@@ -20,7 +23,6 @@ class Validator:
 
     @staticmethod
     def validate_amount(val, balance):
-        """Validates if a betting amount is valid and within balance"""
         try:
             amt = int(val)
             return 0 < amt <= balance
@@ -28,15 +30,15 @@ class Validator:
             return False
 
 class SessionStats:
-    """מעקב אחר נתוני הסשן הנוכחי עבור הדשבורד"""
+    ## ניהול סטטיסטיקת סשן
     def __init__(self):
+        ## self: המופע שמרכז את הסטטיסטיקה של הסשן הנוכחי בלבד
         self.total_bets = 0
         self.wins = 0
         self.history = []
         self.hot_numbers = {}
 
     def update(self, num, result_type):
-        """מעדכן סטטיסטיקה לאחר כל הימור"""
         self.total_bets += 1
         if result_type == "WINNER":
             self.wins += 1
@@ -44,24 +46,20 @@ class SessionStats:
         self.hot_numbers[num] = self.hot_numbers.get(num, 0) + 1
     
     def get_win_rate(self):
-        """מחשב אחוז זכיות"""
         if self.total_bets == 0: return 0
         return (self.wins / self.total_bets) * 100
 
     def get_best_numbers(self):
-        """מחזיר את 3 המספרים שהופיעו הכי הרבה"""
         sorted_nums = sorted(self.hot_numbers.items(), key=lambda x: x[1], reverse=True)
         return [str(n[0]) for n in sorted_nums[:3]]
 
-# --- עזרי UI ותצוגה ---
+## --- עזרי UI ותצוגה ---
 
 def strip_ansi(text):
-    """מסירה קודי צבע ANSI לצורך חישוב אורך טקסט נקי"""
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     return ansi_escape.sub('', text)
 
 def print_box(lines, color="\033[38;5;141m", width=75, title=None):
-    """מדפיסה מסגרת מעוצבת (דשבורד) סביב הטקסט"""
     RESET = "\033[0m"
     GOLD = "\033[38;5;214m"
     top_border = f"{color}┏"
@@ -79,11 +77,9 @@ def print_box(lines, color="\033[38;5;141m", width=75, title=None):
     print(f"┗" + "━" * (width - 2) + f"┛{RESET}")
 
 def clear_screen():
-    """מנקה את המסך לתצוגה חלקה"""
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def type_effect(text, color="\033[38;5;117m", speed=0.01):
-    """אפקט הקלדה עבור הדילר"""
     RESET = "\033[0m"
     GOLD = "\033[38;5;214m"
     sys.stdout.write(f"{GOLD}DEALER AI ➤ {RESET}{color}")
@@ -94,7 +90,6 @@ def type_effect(text, color="\033[38;5;117m", speed=0.01):
     print(f"{RESET}")
 
 def print_header():
-    """הדפסת הלוגו המרכזי בראש המשחק"""
     GOLD = "\033[38;5;214m"
     PURPLE = "\033[38;5;141m"
     clear_screen()
@@ -110,7 +105,6 @@ def print_header():
     print_box(logo, color=PURPLE, width=80)
 
 def show_history_table(history):
-    """מציגה טבלת היסטוריית הימורים מעוצבת"""
     PURPLE = "\033[38;5;141m"
     CYAN = "\033[38;5;117m"
     GREEN = "\033[38;5;46m"
@@ -137,10 +131,9 @@ def show_history_table(history):
     
     print_box(table_lines, color=PURPLE, title="RECENT ACTION", width=80)
 
-# --- אנימציות ---
+## --- אנימציות ---
 
 def spin_animation(target_num, target_color):
-    """אנימציית סיבוב גלגל עם שלבי תאוצה והאטה"""
     GOLD = "\033[38;5;214m"
     CYAN = "\033[38;5;117m"
     RED = "\033[38;5;196m"
@@ -154,7 +147,7 @@ def spin_animation(target_num, target_color):
     
     print(f"\n{CYAN}  Initiating wheel rotation...{RESET}")
     
-    # שלב תאוצה
+    ## שלב תאוצה
     for i in range(10):
         num = random.choice(wheel_nums)
         color = RED if random.random() > 0.5 else DARK
@@ -162,7 +155,7 @@ def spin_animation(target_num, target_color):
         sys.stdout.flush()
         time.sleep(0.08 - (i * 0.005))
         
-    # מהירות גבוהה
+    ## מהירות גבוהה
     for i in range(20):
         num = random.choice(wheel_nums)
         color = RED if random.random() > 0.5 else DARK
@@ -170,7 +163,7 @@ def spin_animation(target_num, target_color):
         sys.stdout.flush()
         time.sleep(0.03)
 
-    # האטה והמתנה לתוצאה
+    ## האטה והמתנה לתוצאה
     for i in range(15):
         num = random.choice(wheel_nums)
         color = RED if random.random() > 0.5 else DARK
@@ -184,7 +177,6 @@ def spin_animation(target_num, target_color):
     print(f"\r  {GOLD}✨ THE BALL HAS LANDED: {res_color}[ {target_num} {target_color} ]{RESET} \n")
 
 def celebration(is_win):
-    """הודעה חגיגית לאחר זכייה או הפסד"""
     GOLD = "\033[38;5;214m"
     GREEN = "\033[38;5;46m"
     RED = "\033[38;5;196m"
@@ -195,7 +187,7 @@ def celebration(is_win):
     else:
         print(f"{RED}   ⚖ ✧✧✧ FORTUNE WAS NOT WITH YOU THIS TIME ✧✧✧ ⚖{RESET}")
 
-# --- לולאת המשחק המרכזית ---
+## --- לולאת המשחק המרכזית ---
 
 def main():
     GOLD = "\033[38;5;214m"
@@ -210,12 +202,13 @@ def main():
     db = DatabaseManager()
     stats = SessionStats()
     
-    # וידוא זהות שחקן
+    ## וידוא זהות שחקן
     sys.stdout.write(f"{GOLD}➤ IDENTITY CONFIRMATION: {RESET}")
     sys.stdout.flush()
     player_name = input().strip() or "Vogue HighRoller"
 
     current_balance = db.load_player_data(player_name)
+    ## OOP: יצירת אובייקט (Instance) ספציפי בזיכרון מתוך התבנית (Class)
     player = Player(player_name, current_balance)
     wheel = Wheel()
     controller = MainController(player, wheel, db)
@@ -225,17 +218,17 @@ def main():
     while True:
         print_header()
         
-        # שכבה 1: נתוני חשבון וביצועים (שימוש ב-Dunder str)
+        ## Dunder Method: הצגת נתוני השחקן דרך __str__
         win_rate = f"{stats.get_win_rate():.1f}%"
         hot_nums = ", ".join(stats.get_best_numbers()) or "---"
         
         overview = [
-            f"{WHITE}VAULT INTEL: {GOLD}{player}", # פה נקרא ה-__str__ של Player
+            f"{WHITE}VAULT INTEL: {GOLD}{player}", ## Polymorphism: קריאה ל-__str__
             f"{WHITE}WIN RATE: {CYAN}{win_rate.ljust(19)} {WHITE}HOT LIST: {GOLD}{hot_nums}"
         ]
         print_box(overview, color=PURPLE, title="SESSION INTELLIGENCE", width=80)
         
-        # שכבה 2: הדילר וסטטוס אחרון
+        ## שלב 2: הדילר וסטטוס אחרון
         insight = controller.get_ai_insight(last_outcome_summary)
         type_effect(insight)
         
@@ -246,7 +239,7 @@ def main():
             print(f" {GOLD}➤ {color}{last_outcome_summary}{RESET}")
             last_outcome_summary = None
 
-        # שכבה 3: תפריט פעולות
+        ## שלב 3: תפריט פעולות
         menu_items = [
             f"{CYAN}➊ Specific Number  {WHITE}(Range: 0-36)",
             f"{CYAN}➋ Color Harmony    {WHITE}(Red/Black)",
@@ -258,12 +251,12 @@ def main():
         
         choice = input(f"\n{GOLD}COMMAND ➤ {RESET}").strip()
 
-        # סיום המשחק
+        ## סיום המשחק
         if choice in ["5", "➎"]:
             print(f"\n{CYAN}Banker: Final assessment complete. Payout of ${player.balance} issued.{RESET}")
             break
         
-        # צפייה בהיסטוריה
+        ## צפייה בהיסטוריה
         if choice in ["4", "➍"]:
             history = db.get_player_history(player.name)
             show_history_table(history)
@@ -273,7 +266,7 @@ def main():
         if choice not in ["1", "2", "3", "➊", "➋", "➌"]:
             continue
 
-        # ניהול מצבי חוסר נזילות
+        ## ניהול מצבי חוסר נזילות
         if player.balance <= 0:
             print(f"{RED}⚠ Liquidity Crisis. Request a $1,000 bailout? (y/n){RESET}")
             if input().lower() == 'y':
@@ -282,7 +275,7 @@ def main():
             continue
 
         try:
-            # הגדרת אובייקט ההימור (פולימורפיזם)
+            ## Polymorphism: יצירת אובייקט הימור בהתאם לבחירה
             target = None
             bet_class = None
 
@@ -308,7 +301,7 @@ def main():
                     continue
                 bet_class = EvenOddBet
 
-            # קלט סכום ההימור
+            ## קלט סכום ההימור
             amt_input = input(f"{CYAN}Capital Allocation: ${RESET}").strip()
             if not Validator.validate_amount(amt_input, player.balance):
                 print(f"{RED}⚠ Protocol Error: Quantitative value required or balance insufficient.{RESET}")
@@ -316,15 +309,15 @@ def main():
                 continue
             amount = int(amt_input)
 
-            # יצירת אובייקט הימור ומסירתו לקונטרולר (Polymorphism)
+            ## Polymorphism: העברת האובייקט לקונטרולר
             current_bet = bet_class(target, amount)
             
-            # אנימציה וביצוע
+            ## אנימציה וביצוע
             roll_number, roll_color = wheel.spin()
             spin_animation(roll_number, roll_color)
             result = controller.process_bet(current_bet)
             
-            # עדכון סטטיסטיקה
+            ## עדכון סטטיסטיקה
             stats.update(roll_number, "WINNER" if "WINNER" in result else "LOST")
             last_outcome_summary = result
             
