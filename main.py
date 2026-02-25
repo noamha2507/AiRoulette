@@ -1,18 +1,16 @@
 import sys
 import time
-import os
-import random
-import re
 from models import Player, Wheel, NumberBet, ColorBet, EvenOddBet
 from database import DatabaseManager
 from MainController import MainController
+from view import CasinoView
 
-## MVC Architecture: View - שכבת התצוגה וקלט המשתמש
-## הקובץ מכיל את פקודות ה-print, העיצוב וקלטי המשתמש
+## תבנית MVC: קובץ זה משמש כ-Entry Point וכ-Controller-Initiator.
+## בביצוע Refactoring זה, אנו משיגים "צימוד נמוך" (Low Coupling) - הלוגיקה לא תלויה במימוש ה-UI.
+## כל האינטראקציה עם המשתמש מתבצעת דרך המופע של CasinoView.
 
 class Validator:
-    ## OOP: Static Methods - מתודות שירות ששייכות למחלקה ולא דורשות יצירת אובייקט
-    ## ולידציה של קלטי משתמש (Static Methods)
+    ## עקרונות OOP: שיטות סטטיות (Static Methods) לביצוע ולידציה ללא צורך ביצירת אובייקט.
     @staticmethod
     def validate_number(val, min_val, max_val):
         try:
@@ -30,9 +28,8 @@ class Validator:
             return False
 
 class SessionStats:
-    ## ניהול סטטיסטיקת סשן
+    ## לכידות גבוהה (High Cohesion): מחלקה זו אחראית אך ורק על ניהול הסטטיסטיקה של הסשן.
     def __init__(self):
-        ## self: המופע שמרכז את הסטטיסטיקה של הסשן הנוכחי בלבד
         self.total_bets = 0
         self.wins = 0
         self.history = []
@@ -53,276 +50,132 @@ class SessionStats:
         sorted_nums = sorted(self.hot_numbers.items(), key=lambda x: x[1], reverse=True)
         return [str(n[0]) for n in sorted_nums[:3]]
 
-## --- עזרי UI ותצוגה ---
-
-def strip_ansi(text):
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    return ansi_escape.sub('', text)
-
-def print_box(lines, color="\033[38;5;141m", width=75, title=None):
-    RESET = "\033[0m"
-    GOLD = "\033[38;5;214m"
-    top_border = f"{color}┏"
-    if title:
-        top_border += f"━ {GOLD}{title} {color}" + "━" * (width - 6 - len(title))
-    else:
-        top_border += "━" * (width - 2)
-    top_border += "┓"
-    print(top_border)
-    
-    for line in lines:
-        visible_len = len(strip_ansi(line))
-        padding = (width - 4) - visible_len
-        print(f"{color}┃ {RESET}{line}" + " " * padding + f" {color}┃")
-    print(f"┗" + "━" * (width - 2) + f"┛{RESET}")
-
-def clear_screen():
-    os.system('cls' if os.name == 'nt' else 'clear')
-
-def type_effect(text, color="\033[38;5;117m", speed=0.01):
-    RESET = "\033[0m"
-    GOLD = "\033[38;5;214m"
-    sys.stdout.write(f"{GOLD}DEALER AI ➤ {RESET}{color}")
-    for char in text or "":
-        sys.stdout.write(char)
-        sys.stdout.flush()
-        time.sleep(speed)
-    print(f"{RESET}")
-
-def print_header():
-    GOLD = "\033[38;5;214m"
-    PURPLE = "\033[38;5;141m"
-    clear_screen()
-    logo = [
-        rf"{GOLD}    ___     ____     ____   ____  __  __ __     ______ ______ ______ ______ ",
-        rf"{GOLD}   /   |   /  _/    / __ \ / __ \/ / / // /    / ____//_  __//_  __// ____/",
-        rf"{GOLD}  / /| |   / /     / /_/ // / / / / / // /    / __/    / /    / /  / __/   ",
-        rf"{GOLD} / ___ | _/ /     / _, _// /_/ / /_/ // /___ / /___   / /    / /  / /___   ",
-        rf"{GOLD}/_/  |_|/___/    /_/ |_| \____/\____//_____//_____/  /_/    /_/  /_____/  ",
-        "",
-        rf"{PURPLE}           - EXCLUSIVE HIGH-STAKES VIRTUAL EXPERIENCE -           "
-    ]
-    print_box(logo, color=PURPLE, width=80)
-
-def show_history_table(history):
-    PURPLE = "\033[38;5;141m"
-    CYAN = "\033[38;5;117m"
-    GREEN = "\033[38;5;46m"
-    RED = "\033[38;5;196m"
-    GOLD = "\033[38;5;214m"
-    RESET = "\033[0m"
-    
-    if not history:
-        print_box(["No recent action. The table is waiting..."], color=PURPLE, title="RECENT ACTION", width=80)
-        return
-
-    table_lines = [
-        f"{GOLD}{'ID':^4} {'TYPE':<12} {'PICK':<10} {'BET':<10} {'STATUS':<10} {'RESULT':<15}{RESET}",
-        f"{PURPLE}" + "━" * 76 + f"{RESET}"
-    ]
-    
-    for i, row in enumerate(history, 1):
-        _, _, amt, res_raw, ts, b_type, select = row
-        clean_res = res_raw.replace('\033[92m','').replace('\033[91m','').replace('\033[93m','').replace('\033[0m','')
-        status = "WINNER" if "WINNER" in clean_res else "LOST"
-        status_color = GREEN if status == "WINNER" else RED
-        outcome = clean_res.split("Result: ")[1] if "Result: " in clean_res else clean_res
-        table_lines.append(f"{CYAN}{i:^4} {str(b_type).capitalize():<12} {str(select):<10} ${str(amt):<9} {status_color}{status:<10}{RESET} {outcome:<15}")
-    
-    print_box(table_lines, color=PURPLE, title="RECENT ACTION", width=80)
-
-## --- אנימציות ---
-
-def spin_animation(target_num, target_color):
-    GOLD = "\033[38;5;214m"
-    CYAN = "\033[38;5;117m"
-    RED = "\033[38;5;196m"
-    GREEN = "\033[38;5;46m"
-    DARK = "\033[38;5;236m"
-    RESET = "\033[0m"
-    
-    frames = ["◐", "◓", "◑", "◒"]
-    wheel_nums = list(range(37))
-    random.shuffle(wheel_nums)
-    
-    print(f"\n{CYAN}  Initiating wheel rotation...{RESET}")
-    
-    ## שלב תאוצה
-    for i in range(10):
-        num = random.choice(wheel_nums)
-        color = RED if random.random() > 0.5 else DARK
-        sys.stdout.write(f"\r  {color} [ {num:2} ] {frames[i % 4]} {RESET}")
-        sys.stdout.flush()
-        time.sleep(0.08 - (i * 0.005))
-        
-    ## מהירות גבוהה
-    for i in range(20):
-        num = random.choice(wheel_nums)
-        color = RED if random.random() > 0.5 else DARK
-        sys.stdout.write(f"\r  {color} [ {num:2} ] {frames[i % 4]} {RESET}")
-        sys.stdout.flush()
-        time.sleep(0.03)
-
-    ## האטה והמתנה לתוצאה
-    for i in range(15):
-        num = random.choice(wheel_nums)
-        color = RED if random.random() > 0.5 else DARK
-        sys.stdout.write(f"\r  {color} [ {num:2} ] {frames[i % 4]} {RESET}")
-        sys.stdout.flush()
-        time.sleep(0.03 + (i * 0.02))
-
-    res_color = RED if target_color == "Red" else DARK
-    if target_color == "Green": res_color = GREEN
-    
-    print(f"\r  {GOLD}✨ THE BALL HAS LANDED: {res_color}[ {target_num} {target_color} ]{RESET} \n")
-
-def celebration(is_win):
-    GOLD = "\033[38;5;214m"
-    GREEN = "\033[38;5;46m"
-    RED = "\033[38;5;196m"
-    RESET = "\033[0m"
-    
-    if is_win:
-        print(f"{GREEN}   💰 ✧✧✧ EXCELLENT! YOU HAVE WON THE ROUND ✧✧✧ 💰{RESET}")
-    else:
-        print(f"{RED}   ⚖ ✧✧✧ FORTUNE WAS NOT WITH YOU THIS TIME ✧✧✧ ⚖{RESET}")
-
-## --- לולאת המשחק המרכזית ---
-
 def main():
-    GOLD = "\033[38;5;214m"
-    PURPLE = "\033[38;5;141m"
-    CYAN = "\033[38;5;117m"
-    GREEN = "\033[38;5;46m"
-    RED = "\033[38;5;196m"
-    WHITE = "\033[38;5;255m"
-    RESET = "\033[0m"
-
-    print_header()
+    ## אתחול רכיבי ה-MVC
+    view = CasinoView()
     db = DatabaseManager()
     stats = SessionStats()
     
-    ## וידוא זהות שחקן
-    sys.stdout.write(f"{GOLD}➤ IDENTITY CONFIRMATION: {RESET}")
+    view.print_header()
+    
+    ## וידוא זהות שחקן דרך ה-View
+    sys.stdout.write(f"{view.GOLD}➤ IDENTITY CONFIRMATION: {view.RESET}")
     sys.stdout.flush()
     player_name = input().strip() or "Vogue HighRoller"
 
     current_balance = db.load_player_data(player_name)
-    ## OOP: יצירת אובייקט (Instance) ספציפי בזיכרון מתוך התבנית (Class)
+    
+    ## יצירת מודלים (Models)
     player = Player(player_name, current_balance)
     wheel = Wheel()
+    
+    ## קונטרולר מרכזי האחראי על תיאום בין המודל לתצוגה
     controller = MainController(player, wheel, db)
 
     last_outcome_summary = None
 
+    ## לולאת ה-REPL המרכזית (Read-Eval-Print Loop)
     while True:
-        print_header()
+        view.print_header()
         
-        ## Dunder Method: הצגת נתוני השחקן דרך __str__
+        ## הצגת נתוני הסשן
         win_rate = f"{stats.get_win_rate():.1f}%"
         hot_nums = ", ".join(stats.get_best_numbers()) or "---"
         
         overview = [
-            f"{WHITE}VAULT INTEL: {GOLD}{player}", ## Polymorphism: קריאה ל-__str__
-            f"{WHITE}WIN RATE: {CYAN}{win_rate.ljust(19)} {WHITE}HOT LIST: {GOLD}{hot_nums}"
+            f"{view.WHITE}VAULT INTEL: {view.GOLD}{player}",
+            f"{view.WHITE}WIN RATE: {view.CYAN}{win_rate.ljust(19)} {view.WHITE}HOT LIST: {view.GOLD}{hot_nums}"
         ]
-        print_box(overview, color=PURPLE, title="SESSION INTELLIGENCE", width=80)
+        view.print_box(overview, color=view.PURPLE, title="SESSION INTELLIGENCE", width=80)
         
-        ## שלב 2: הדילר וסטטוס אחרון
+        ## קבלת תובנות מהדילר (AI)
         insight = controller.get_ai_insight(last_outcome_summary)
-        type_effect(insight)
+        view.type_effect(insight)
         
         if last_outcome_summary:
             is_win = "WINNER" in last_outcome_summary
-            celebration(is_win)
-            color = GREEN if is_win else RED
-            print(f" {GOLD}➤ {color}{last_outcome_summary}{RESET}")
+            view.celebration(is_win)
+            color = view.GREEN if is_win else view.RED
+            print(f" {view.GOLD}➤ {color}{last_outcome_summary}{view.RESET}")
             last_outcome_summary = None
 
-        ## שלב 3: תפריט פעולות
+        ## תפריט הפעולות מבוצע על ידי ה-View
         menu_items = [
-            f"{CYAN}➊ Specific Number  {WHITE}(Range: 0-36)",
-            f"{CYAN}➋ Color Harmony    {WHITE}(Red/Black)",
-            f"{CYAN}➌ Parity Bet       {WHITE}(Even/Odd)",
-            f"{PURPLE}➍ View Ledger      {WHITE}(History)",
-            f"{RED}➎ Terminate        {WHITE}(Cash Out)"
+            f"{view.CYAN}➊ Specific Number  {view.WHITE}(Range: 0-36)",
+            f"{view.CYAN}➋ Color Harmony    {view.WHITE}(Red/Black)",
+            f"{view.CYAN}➌ Parity Bet       {view.WHITE}(Even/Odd)",
+            f"{view.PURPLE}➍ View Ledger      {view.WHITE}(History)",
+            f"{view.RED}➎ Terminate        {view.WHITE}(Cash Out)"
         ]
-        print_box(menu_items, color=PURPLE, title="MARKET OPERATIONS", width=42)
+        view.print_box(menu_items, color=view.PURPLE, title="MARKET OPERATIONS", width=42)
         
-        choice = input(f"\n{GOLD}COMMAND ➤ {RESET}").strip()
+        choice = input(f"\n{view.GOLD}COMMAND ➤ {view.RESET}").strip()
 
-        ## סיום המשחק
         if choice in ["5", "➎"]:
-            print(f"\n{CYAN}Banker: Final assessment complete. Payout of ${player.balance} issued.{RESET}")
+            print(f"\n{view.CYAN}Banker: Final assessment complete. Payout of ${player.balance} issued.{view.RESET}")
             break
         
-        ## צפייה בהיסטוריה
         if choice in ["4", "➍"]:
             history = db.get_player_history(player.name)
-            show_history_table(history)
-            input(f"\n{GOLD}Press Enter to return to the table...{RESET}")
+            view.show_history_table(history)
+            input(f"\n{view.GOLD}Press Enter to return to the table...{view.RESET}")
             continue
 
         if choice not in ["1", "2", "3", "➊", "➋", "➌"]:
             continue
 
-        ## ניהול מצבי חוסר נזילות
         if player.balance <= 0:
-            print(f"{RED}⚠ Liquidity Crisis. Request a $1,000 bailout? (y/n){RESET}")
+            print(f"{view.RED}⚠ Liquidity Crisis. Request a $1,000 bailout? (y/n){view.RESET}")
             if input().lower() == 'y':
                 player.balance = 1000
                 db.update_balance(player.name, 1000)
             continue
 
         try:
-            ## Polymorphism: יצירת אובייקט הימור בהתאם לבחירה
             target = None
             bet_class = None
 
             if choice in ["1", "➊"]:
-                target = input(f"{CYAN}Target Integer (0-36): {RESET}").strip()
+                target = input(f"{view.CYAN}Target Integer (0-36): {view.RESET}").strip()
                 if not Wheel.is_valid_number(target):
-                    print(f"{RED}⚠ Protocol Error: Integer overflow (0-36).{RESET}")
+                    print(f"{view.RED}⚠ Protocol Error: Integer overflow (0-36).{view.RESET}")
                     time.sleep(1)
                     continue
                 bet_class = NumberBet
             elif choice in ["2", "➋"]:
-                target = input(f"{CYAN}Target Harmony (Red/Black): {RESET}").strip().capitalize()
+                target = input(f"{view.CYAN}Target Harmony (Red/Black): {view.RESET}").strip().capitalize()
                 if target not in ["Red", "Black"]:
-                    print(f"{RED}⚠ Protocol Error: Unknown harmony.{RESET}")
+                    print(f"{view.RED}⚠ Protocol Error: Unknown harmony.{view.RESET}")
                     time.sleep(1)
                     continue
                 bet_class = ColorBet
             elif choice in ["3", "➌"]:
-                target = input(f"{CYAN}Target Parity (Even/Odd): {RESET}").strip().lower()
+                target = input(f"{view.CYAN}Target Parity (Even/Odd): {view.RESET}").strip().lower()
                 if target not in ["even", "odd"]:
-                    print(f"{RED}⚠ Protocol Error: Parity mismatch.{RESET}")
+                    print(f"{view.RED}⚠ Protocol Error: Parity mismatch.{view.RESET}")
                     time.sleep(1)
                     continue
                 bet_class = EvenOddBet
 
-            ## קלט סכום ההימור
-            amt_input = input(f"{CYAN}Capital Allocation: ${RESET}").strip()
+            amt_input = input(f"{view.CYAN}Capital Allocation: ${view.RESET}").strip()
             if not Validator.validate_amount(amt_input, player.balance):
-                print(f"{RED}⚠ Protocol Error: Quantitative value required or balance insufficient.{RESET}")
+                print(f"{view.RED}⚠ Protocol Error: Quantitative value required or balance insufficient.{view.RESET}")
                 time.sleep(1)
                 continue
             amount = int(amt_input)
 
-            ## Polymorphism: העברת האובייקט לקונטרולר
+            ## פולימורפיזם (Polymorphism): יצירת אובייקט הימור והעברתו לעיבוד בקונטרולר
             current_bet = bet_class(target, amount)
             
-            ## אנימציה וביצוע
             roll_number, roll_color = wheel.spin()
-            spin_animation(roll_number, roll_color)
+            view.spin_animation(roll_number, roll_color)
             result = controller.process_bet(current_bet)
             
-            ## עדכון סטטיסטיקה
             stats.update(roll_number, "WINNER" if "WINNER" in result else "LOST")
             last_outcome_summary = result
             
         except Exception as e:
-            print(f"{RED}⚠ System Fault: {e}{RESET}")
+            print(f"{view.RED}⚠ System Fault: {e}{view.RESET}")
             time.sleep(2)
 
 if __name__ == "__main__":
