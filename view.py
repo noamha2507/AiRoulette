@@ -1,15 +1,15 @@
 import os
 import sys
+import re
 import time
 import random
-import re
 
 ## תבנית MVC: שכבת התצוגה (View)
-## מחלקה זו אחראית בלעדית על כל מה שהמשתמש רואה בטרמינל.
-## יישום עקרון "הפרדת תחומי אחריות" (Separation of Concerns) - הלוגיקה והנתונים מופרדים מהעיצוב.
+## מחלקה זו אחראית בלעדית על "הפרדת תחומי אחריות" (Separation of Concerns).
+## כל האינטראקציה מול הטרמינל (פלט וקלט) מנוהלת כאן כדי להשיג "צימוד נמוך" (Low Coupling).
 class CasinoView:
     def __init__(self):
-        ## צבעי ANSI לשימוש חוזר ברחבי התצוגה
+        ## ריכוז משתני התצוגה בתוך המופע (Encapsulation).
         self.GOLD = "\033[38;5;214m"
         self.PURPLE = "\033[38;5;141m"
         self.CYAN = "\033[38;5;117m"
@@ -18,6 +18,11 @@ class CasinoView:
         self.WHITE = "\033[38;5;255m"
         self.DARK = "\033[38;5;236m"
         self.RESET = "\033[0m"
+
+    ## פונקציית עזר פנימית לניהול קלט (Encapsulated Input)
+    def get_input(self, prompt_text, color=None):
+        if color is None: color = self.GOLD
+        return input(f"{color}{prompt_text}{self.RESET}").strip()
 
     ## הסרת קודים של ANSI לצורך חישוב אורך טקסט נקי
     def strip_ansi(self, text):
@@ -28,13 +33,14 @@ class CasinoView:
     def clear_screen(self):
         os.system('cls' if os.name == 'nt' else 'clear')
 
-    ## הדפסת תיבת טקסט מעוצבת
-    ## SoC: פונקציה זו מרכזת את כל נושא המסגור והעיצוב הגרפי
+    ## הדפסת תיבת טקסט מעוצבת - מימוש עקרון ה-View לעיצוב פלטים
     def print_box(self, lines, color=None, width=75, title=None):
         if color is None: color = self.PURPLE
         top_border = f"{color}┏"
         if title:
-            top_border += f"━ {self.GOLD}{title} {color}" + "━" * (width - 6 - len(title))
+            ## תיקון חישוב רוחב המסגרת העליונה (Correction of top border width calculation)
+            ## שימוש ב-5 כערך קבוע לקיזוז תווים קבועים: ┏ (1), ━ (1), רווח (1), רווח (1), ┓ (1)
+            top_border += f"━ {self.GOLD}{title} {color}" + "━" * (width - 5 - len(title))
         else:
             top_border += "━" * (width - 2)
         top_border += "┓"
@@ -46,7 +52,7 @@ class CasinoView:
             print(f"{color}┃ {self.RESET}{line}" + " " * padding + f" {color}┃")
         print(f"┗" + "━" * (width - 2) + f"┛{self.RESET}")
 
-    ## אפקט הקלדה של הדילר
+    ## אפקט הקלדה המדמה דיאלוג של סוכן AI
     def type_effect(self, text, color=None, speed=0.01):
         if color is None: color = self.CYAN
         sys.stdout.write(f"{self.GOLD}DEALER AI ➤ {self.RESET}{color}")
@@ -56,7 +62,7 @@ class CasinoView:
             time.sleep(speed)
         print(f"{self.RESET}")
 
-    ## הדפסת כותרת המשחק הגדולה
+    ## הדפסת כותרת המשחק - מודולציה של רכיבי UI
     def print_header(self):
         self.clear_screen()
         logo = [
@@ -70,7 +76,7 @@ class CasinoView:
         ]
         self.print_box(logo, color=self.PURPLE, width=80)
 
-    ## הצגת היסטוריית הפעולות בטבלה מעוצבת
+    ## הצגת היסטוריית הפעולות בטבלה מעוצבת (View Logic)
     def show_history_table(self, history):
         if not history:
             self.print_box(["No recent action. The table is waiting..."], color=self.PURPLE, title="RECENT ACTION", width=80)

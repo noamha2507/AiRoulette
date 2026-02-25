@@ -1,84 +1,42 @@
-import sys
 import time
 from models import Player, Wheel, NumberBet, ColorBet, EvenOddBet
 from database import DatabaseManager
 from MainController import MainController
 from view import CasinoView
+from validator import Validator
+from session_stats import SessionStats
 
-## תבנית MVC: קובץ זה משמש כ-Entry Point וכ-Controller-Initiator.
-## בביצוע Refactoring זה, אנו משיגים "צימוד נמוך" (Low Coupling) - הלוגיקה לא תלויה במימוש ה-UI.
-## כל האינטראקציה עם המשתמש מתבצעת דרך המופע של CasinoView.
-
-class Validator:
-    ## עקרונות OOP: שיטות סטטיות (Static Methods) לביצוע ולידציה ללא צורך ביצירת אובייקט.
-    @staticmethod
-    def validate_number(val, min_val, max_val):
-        try:
-            num = int(val)
-            return min_val <= num <= max_val
-        except (ValueError, TypeError):
-            return False
-
-    @staticmethod
-    def validate_amount(val, balance):
-        try:
-            amt = int(val)
-            return 0 < amt <= balance
-        except (ValueError, TypeError):
-            return False
-
-class SessionStats:
-    ## לכידות גבוהה (High Cohesion): מחלקה זו אחראית אך ורק על ניהול הסטטיסטיקה של הסשן.
-    def __init__(self):
-        self.total_bets = 0
-        self.wins = 0
-        self.history = []
-        self.hot_numbers = {}
-
-    def update(self, num, result_type):
-        self.total_bets += 1
-        if result_type == "WINNER":
-            self.wins += 1
-        self.history.append(num)
-        self.hot_numbers[num] = self.hot_numbers.get(num, 0) + 1
-    
-    def get_win_rate(self):
-        if self.total_bets == 0: return 0
-        return (self.wins / self.total_bets) * 100
-
-    def get_best_numbers(self):
-        sorted_nums = sorted(self.hot_numbers.items(), key=lambda x: x[1], reverse=True)
-        return [str(n[0]) for n in sorted_nums[:3]]
+## תבנית MVC: קובץ זה משמש כ-Entry Point (נקודת כניסה) מרכזית.
+## מודולציה פיזית (Physical Modularity): הקובץ אינו מכיל הגדרות מחלקות אלא רק תיאום (Orchestration).
+## עקרון ה-Single Responsibility: קובץ זה אחראי אך ורק על אתחול המערכת והרצת הלולאה הראשית.
 
 def main():
-    ## אתחול רכיבי ה-MVC
+    ## אתחול רכיבי המערכת (Instantiation)
+    ## כל רכיב נמצא בקובץ נפרד להשגת לכידות גבוהה (High Cohesion).
     view = CasinoView()
     db = DatabaseManager()
     stats = SessionStats()
+    wheel = Wheel()
     
     view.print_header()
     
-    ## וידוא זהות שחקן דרך ה-View
-    sys.stdout.write(f"{view.GOLD}➤ IDENTITY CONFIRMATION: {view.RESET}")
-    sys.stdout.flush()
-    player_name = input().strip() or "Vogue HighRoller"
+    ## קבלת קלט ראשוני דרך שכבת התצוגה (Encapsulated UI)
+    player_name = view.get_input("➤ IDENTITY CONFIRMATION: ") or "Vogue HighRoller"
 
     current_balance = db.load_player_data(player_name)
-    
-    ## יצירת מודלים (Models)
     player = Player(player_name, current_balance)
-    wheel = Wheel()
     
-    ## קונטרולר מרכזי האחראי על תיאום בין המודל לתצוגה
+    ## הקונטרולר המרכזי שמתזמר את הלוגיקה העסקית
     controller = MainController(player, wheel, db)
 
     last_outcome_summary = None
 
-    ## לולאת ה-REPL המרכזית (Read-Eval-Print Loop)
+    ## לולאת ה-REPL (Read-Eval-Print Loop)
+    ## הפרדת תחומי אחריות: הלולאה מנהלת את הזרם, ה-View מנהל את התצוגה.
     while True:
         view.print_header()
         
-        ## הצגת נתוני הסשן
+        ## הכנת נתונים לתצוגה
         win_rate = f"{stats.get_win_rate():.1f}%"
         hot_nums = ", ".join(stats.get_best_numbers()) or "---"
         
@@ -88,18 +46,18 @@ def main():
         ]
         view.print_box(overview, color=view.PURPLE, title="SESSION INTELLIGENCE", width=80)
         
-        ## קבלת תובנות מהדילר (AI)
+        ## הצגת תובנות הדילר דרך ה-View
         insight = controller.get_ai_insight(last_outcome_summary)
         view.type_effect(insight)
         
         if last_outcome_summary:
             is_win = "WINNER" in last_outcome_summary
             view.celebration(is_win)
-            color = view.GREEN if is_win else view.RED
-            print(f" {view.GOLD}➤ {color}{last_outcome_summary}{view.RESET}")
+            output_color = view.GREEN if is_win else view.RED
+            view.print_box([f"{view.GOLD}➤ {output_color}{last_outcome_summary}"], color=view.PURPLE, width=80)
             last_outcome_summary = None
 
-        ## תפריט הפעולות מבוצע על ידי ה-View
+        ## תצוגת תפריט פעולות
         menu_items = [
             f"{view.CYAN}➊ Specific Number  {view.WHITE}(Range: 0-36)",
             f"{view.CYAN}➋ Color Harmony    {view.WHITE}(Red/Black)",
@@ -109,24 +67,25 @@ def main():
         ]
         view.print_box(menu_items, color=view.PURPLE, title="MARKET OPERATIONS", width=42)
         
-        choice = input(f"\n{view.GOLD}COMMAND ➤ {view.RESET}").strip()
+        choice = view.get_input("\nCOMMAND ➤ ")
 
         if choice in ["5", "➎"]:
-            print(f"\n{view.CYAN}Banker: Final assessment complete. Payout of ${player.balance} issued.{view.RESET}")
+            view.type_effect(f"Banker: Final assessment complete. Payout of ${player.balance} issued.", color=view.CYAN)
             break
         
         if choice in ["4", "➍"]:
             history = db.get_player_history(player.name)
             view.show_history_table(history)
-            input(f"\n{view.GOLD}Press Enter to return to the table...{view.RESET}")
+            view.get_input("\nPress Enter to return to the table...")
             continue
 
         if choice not in ["1", "2", "3", "➊", "➋", "➌"]:
             continue
 
+        ## טיפול במצב של חוסר יתרה
         if player.balance <= 0:
-            print(f"{view.RED}⚠ Liquidity Crisis. Request a $1,000 bailout? (y/n){view.RESET}")
-            if input().lower() == 'y':
+            bailout = view.get_input("⚠ Liquidity Crisis. Request a $1,000 bailout? (y/n)", color=view.RED)
+            if bailout.lower() == 'y':
                 player.balance = 1000
                 db.update_balance(player.name, 1000)
             continue
@@ -136,35 +95,35 @@ def main():
             bet_class = None
 
             if choice in ["1", "➊"]:
-                target = input(f"{view.CYAN}Target Integer (0-36): {view.RESET}").strip()
+                target = view.get_input("Target Integer (0-36): ", color=view.CYAN)
                 if not Wheel.is_valid_number(target):
-                    print(f"{view.RED}⚠ Protocol Error: Integer overflow (0-36).{view.RESET}")
+                    view.type_effect("⚠ Protocol Error: Integer overflow (0-36).", color=view.RED)
                     time.sleep(1)
                     continue
                 bet_class = NumberBet
             elif choice in ["2", "➋"]:
-                target = input(f"{view.CYAN}Target Harmony (Red/Black): {view.RESET}").strip().capitalize()
+                target = view.get_input("Target Harmony (Red/Black): ", color=view.CYAN).capitalize()
                 if target not in ["Red", "Black"]:
-                    print(f"{view.RED}⚠ Protocol Error: Unknown harmony.{view.RESET}")
+                    view.type_effect("⚠ Protocol Error: Unknown harmony.", color=view.RED)
                     time.sleep(1)
                     continue
                 bet_class = ColorBet
             elif choice in ["3", "➌"]:
-                target = input(f"{view.CYAN}Target Parity (Even/Odd): {view.RESET}").strip().lower()
+                target = view.get_input("Target Parity (Even/Odd): ", color=view.CYAN).lower()
                 if target not in ["even", "odd"]:
-                    print(f"{view.RED}⚠ Protocol Error: Parity mismatch.{view.RESET}")
+                    view.type_effect("⚠ Protocol Error: Parity mismatch.", color=view.RED)
                     time.sleep(1)
                     continue
                 bet_class = EvenOddBet
 
-            amt_input = input(f"{view.CYAN}Capital Allocation: ${view.RESET}").strip()
+            amt_input = view.get_input("Capital Allocation: $", color=view.CYAN)
             if not Validator.validate_amount(amt_input, player.balance):
-                print(f"{view.RED}⚠ Protocol Error: Quantitative value required or balance insufficient.{view.RESET}")
+                view.type_effect("⚠ Protocol Error: Quantitative value required or balance insufficient.", color=view.RED)
                 time.sleep(1)
                 continue
             amount = int(amt_input)
 
-            ## פולימורפיזם (Polymorphism): יצירת אובייקט הימור והעברתו לעיבוד בקונטרולר
+            ## פולימורפיזם (Polymorphism): העברת אובייקט הימור אבסטרקטי לקונטרולר
             current_bet = bet_class(target, amount)
             
             roll_number, roll_color = wheel.spin()
@@ -175,7 +134,7 @@ def main():
             last_outcome_summary = result
             
         except Exception as e:
-            print(f"{view.RED}⚠ System Fault: {e}{view.RESET}")
+            view.type_effect(f"⚠ System Fault: {e}", color=view.RED)
             time.sleep(2)
 
 if __name__ == "__main__":
